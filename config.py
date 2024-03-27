@@ -1,10 +1,11 @@
+DATA_FILE = '/data/circulars/DATA/layoutLM+Tactful/model_outputs/gcmi/temp/flickr8k_2.pkl'
+IMAGE_DIR = '/data/circulars/DATA/layoutLM+Tactful/model_outputs/gcmi/temp/Images'
+OUTPUT_DIR = '/data/circulars/DATA/layoutLM+Tactful/model_outputs/gcmi/temp/teacher_forcing_output'
 
+BATCH_SIZE = 32
+EPOCH = 50
+G_LEARNING_RATE = 1e-5
+D_LEARNING_RATE = 1e-5
+TEACHER_FORCING_RATIO = 0.5
 
-class Config:
-    def __init__(self) -> None:
-        self.max_len=35  # Output dimension of the generator (size of vocabulary)
-        self.epochs=10
-        self.batch_size=32
-        self.vocab_size=3000
-        self.max_caption_length=20
-        self.train_gen_steps=4
+gpu_device = 1
