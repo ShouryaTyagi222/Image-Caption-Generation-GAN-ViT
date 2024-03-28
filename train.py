@@ -14,8 +14,8 @@ import os
 import pickle as pkl
 import numpy as np
 
-from model.model import load_model
-from data.data_loader import load_data
+from model import load_model
+from data_loader import load_data
 from config import *
 device = torch.device(f"cuda:{gpu_device}" if torch.cuda.is_available() else "cpu")
 
@@ -145,41 +145,33 @@ for epoch in range(EPOCH):
     for i, batch_items in enumerate(progbar):
         image_features = batch_items[0].to(device)
         real_captions = batch_items[1].to(device)
-        # print('\n Loaded the batch')
         r_caption = decode(real_captions[0])
-
-        pred_real_labels = dis(real_captions)
 
         fake_captions = gen(image_features, real_captions)
         f_caption = decode(fake_captions[0])
-        discriminator_optimizer.zero_grad()
-        pred_fake_labels = dis(fake_captions.detach())
-        # print('RAN THE MODEL ONE')
+        
+        # with torch.no_grad():
+        pred_fake_labels = dis(fake_captions)
 
         real_labels = torch.ones_like(pred_fake_labels).float()
         fake_labels = torch.zeros_like(pred_fake_labels).float()
 
+        generator_optimizer.zero_grad()
+        generator_loss = g_loss(pred_fake_labels, real_labels)
+        b_score = bleu_score(r_caption,f_caption)
+        total_generator_loss=generator_loss
+        generator_loss.backward()
+        clip_grad_norm_(gen.parameters(), max_norm=0.5)  # Adjust max_norm as needed
+        generator_optimizer.step()
+
+        pred_real_labels = dis(real_captions)
+        pred_fake_labels = dis(fake_captions.detach())
+        discriminator_optimizer.zero_grad()
         real_discriminator_loss = d_loss(pred_real_labels, real_labels)
         fake_discriminator_loss = d_loss(pred_fake_labels, fake_labels)
         total_discriminator_loss = real_discriminator_loss + fake_discriminator_loss
         total_discriminator_loss.backward()
-        # Gradient clipping for discriminator
-        clip_grad_norm_(dis.parameters(), max_norm=1.0)  # Adjust max_norm as needed
         discriminator_optimizer.step()
-
-
-        generator_optimizer.zero_grad()
-        pred_fake_labels = dis(fake_captions)
-        generator_loss = g_loss(pred_fake_labels, real_labels)
-        # print(generator_loss)
-        b_score = bleu_score(r_caption,f_caption)
-        total_generator_loss=generator_loss
-        total_generator_loss.backward()
-        # Gradient clipping for generator
-        clip_grad_norm_(gen.parameters(), max_norm=0.5)  # Adjust max_norm as needed
-        generator_optimizer.step()
-        # print('RAn the Model 2')
-
 
         losses_G.append(total_generator_loss.cpu().data.numpy())
         losses_D.append(total_discriminator_loss.cpu().data.numpy())

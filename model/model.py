@@ -6,7 +6,7 @@ warnings.filterwarnings("ignore")
 import torch.nn.functional as F
 import random
 
-from config import *
+from ..config import *
 
 # config = Config()
 
@@ -43,9 +43,10 @@ class MultiHeadSelfAttention(nn.Module):
         attention_output = torch.matmul(attention_weights, value)
 
         attention_output = attention_output.permute(0, 2, 1, 3).contiguous().view(batch_size, seq_len, embed_dim)
+        # print(attention_output.shape)
         output = self.fc_out(attention_output)  # Adjusted output
 
-        return output
+        return output, attention_output
 
 class Generator(nn.Module):
     def __init__(self, max_len, vocab_size, pretrained_model, additional_layers, feature_extractor, device):
@@ -90,24 +91,30 @@ class Generator(nn.Module):
         # sequences = torch.tensor([[1] + [0 for _ in range(self.max_len - 1)] for _ in range(final_img_features.shape[0])], dtype=torch.long).to(self.device)
         sequences = torch.tensor([[1] for _ in range(final_img_features.shape[0])], dtype=torch.long).to(self.device)  # Start token
 
-        # sequences = self.next_word(sequences, final_img_features, i)
+        yhat_index, hidden_states = self.get_word(sequences, final_img_features, 0)
+        sequences = torch.cat((sequences, yhat_index.T), dim=1)
 
-
-        # Generate the sequence for each position
-        # Teacher forcing
-        for i in range(self.max_len - 1):
-            if targets is not None and random.random() < TEACHER_FORCING_RATIO:
-                sequences = self.next_word(sequences, final_img_features, i, targets[:, i+1])
-            else:
-                sequences = self.next_word(sequences, final_img_features, i)
+        # # Teacher forcing
+        # if targets is not None and random.random() < TEACHER_FORCING_RATIO:
+        #     for i in range(self.max_len - 1):
+        #         yhat, hidden_states = self.fc_combined(hidden_states)
+        #         yhat_probs = F.softmax(yhat, dim=2)
+        #         _, yhat_index = torch.max(yhat_probs, dim=2)
+        #         sequences = torch.cat((sequences, yhat_index.T), dim=1)
+        # else:
+        for i in range(self.max_len - 2):
+            yhat, hidden_states = self.fc_combined(hidden_states)
+            yhat_probs = F.softmax(yhat, dim=2)
+            _, yhat_index = torch.max(yhat_probs, dim=2)
+            sequences = torch.cat((sequences, yhat_index.T), dim=1)
+            # print(sequences)
 
         return sequences
     
-    def next_word(self, sequences, final_img_features, i, target = None):
+    def get_word(self, sequences, final_img_features, i, target = None):
         embedded = self.embedding(sequences)
         lstm_out, _ = self.lstm(embedded)
-        # print(lstm_out.shape,lstm_out[:, i, :].shape)
-        features = lstm_out[:, i, :]
+        features = lstm_out[:, 0, :]
         features = self.fc1(features)
         features = self.relu(features)  # Apply ReLU activation
         features = self.dropout(features)  # Apply dropout
@@ -115,61 +122,12 @@ class Generator(nn.Module):
         final_text_features = self.relu(final_text_features)  # Apply ReLU activation
 
         combined_features = torch.cat((final_text_features, final_img_features), dim=1)
-        yhat = self.fc_combined(combined_features.unsqueeze(0))
+        yhat, hidden_states = self.fc_combined(combined_features.unsqueeze(0))
 
         yhat_probs = F.softmax(yhat, dim=2)
         _, yhat_index = torch.max(yhat_probs, dim=2)
 
-        # Update the sequence for all images at once
-        # sequences[:, i + 1] = yhat_index.squeeze().detach()
-        if target is not None:
-            sequences = torch.cat((sequences, target.unsqueeze(1)), dim=1)
-        else:
-            sequences = torch.cat((sequences, yhat_index.T), dim=1)
-        # print(sequences)
-        return sequences
-
-        # sequences = []
-
-        # with torch.no_grad():
-        #     for image in final_img_features:
-        #         image = image.unsqueeze(0).to(self.device)
-        #         # sequence = torch.tensor([1] + [0 for _ in range(self.max_len - 1)], dtype=torch.long).unsqueeze(0).to(self.device)
-        #         sequence = torch.tensor([1], dtype=torch.long).unsqueeze(0).to(self.device)
-        #         # print('image_features :',image.shape)
-        #         for i in range(self.max_len - 1):
-        #             embedded = self.embedding(sequence)
-        #             lstm_out, _ = self.lstm(embedded)
-        #             features = lstm_out[:, -1, :]
-        #             final_text_features = self.fc(features)
-
-        #             # print(i,'-> caption_features :',final_text_features.shape)
-        #             combined_features = torch.cat((final_text_features, image), dim=1)
-        #             # print(combined_features)
-
-        #             yhat = self.fc_combined(combined_features.unsqueeze(0))
-        #             # print('yhat :',yhat)
-
-        #             # yhat_with_noise = yhat[0] + torch.randn_like(yhat[0]) / self.diversity_temperature
-        #             # yhat_softmax = F.softmax(yhat_with_noise, dim=1)
-        #             # # Sample from the softmax distribution to introduce randomness
-        #             # yhat_index = torch.multinomial(yhat_softmax, 1).squeeze(1)
-                    
-        #             yhat_probs = F.softmax(yhat, dim=2)
-        #             # Then you might select the word with the highest probability:
-        #             _, yhat_index = torch.max(yhat_probs, dim=2)
-
-        #             # Update the sequence with the sampled index
-        #             # sequence[0][i + 1] = yhat_index.item()
-        #             sequence = torch.cat((sequence, yhat_index), dim=1)
-
-        #             # Check for end token and break the loop if found
-        #             if yhat_index.item() == 2:  # Assuming end token index is 2
-        #                 break
-
-        #         sequences.append(sequence[0])
-
-        # return torch.stack(sequences)
+        return yhat_index, hidden_states
 
 class Discriminator(nn.Module):
       def __init__(self, vocab_size, hidden_dim=64):
