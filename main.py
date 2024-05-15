@@ -16,10 +16,7 @@ from utils import check_args, fix_seed, memory_usage
 from torchviz import make_dot, make_dot_from_trace
 
 def run(args):
-    # Get configuration
     config = exh.load_json(args.CONFIG)
-
-    # Prepare folders for logging
     logging = config['logging']['activate']
     if logging:
         exh.create_directory("output")

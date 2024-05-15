@@ -9,16 +9,6 @@ import utils.explorer_helper as exh
 
 
 def check_args(argv):
-    """Checks and parses the arguments of the command typed by the user
-    Parameters
-    ----------
-    argv :
-        The arguments of the command typed by the user
-    Returns
-    -------
-    ArgumentParser
-        the values of the arguments of the commande typed by the user
-    """
     parser = argparse.ArgumentParser(description="Build vocabulary corpus from a set of captions.")
     parser.add_argument('INPUT', type=str, help="file containing the set of captions")
     # parser.add_argument('OUTPUT', type=str, help="name of the file in which the corpus must be saved")
