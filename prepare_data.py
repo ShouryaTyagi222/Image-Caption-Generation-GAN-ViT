@@ -71,6 +71,7 @@ class ImageEncoder(object):
             param.requires_grad = False
 
         self.flatten = nn.Flatten()
+        op = nn.Linear(151296, 2048)
 
     def get(self, image):
         inputs = self.feature_extractor(images=image, return_tensors="pt")
@@ -79,7 +80,7 @@ class ImageEncoder(object):
         last_layer_features = hidden_states[-1]
         fl = self.flatten(last_layer_features)
 
-        return fl[:, :2048]
+        return op(fl)
 
 
 class ImageFactory(object):

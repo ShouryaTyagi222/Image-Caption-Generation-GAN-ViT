@@ -12,7 +12,7 @@ class MultiHeadSelfAttention(nn.Module):
     def __init__(self, embed_dim, num_heads, vocab_size):
         super(MultiHeadSelfAttention, self).__init__()
         assert embed_dim % num_heads == 0, "Embedding dimension must be divisible by the number of heads."
-        self.embed_dim = embed_dim
+        self.embed_dim = embed_dims
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
 
@@ -123,12 +123,7 @@ class Generator(nn.Module):
         else:
             dropped_y = y
             
-        # h1_c1, (h,c) = self.lstm(dropped_y)
-        
-        # # print('lstm outputs ht, h, c :', h1.shape,h.shape, c.shape)
-
-        # if self.dropout_state > 0:
-        #     h = self.do_state(h)
+        # h1_c1, _ = self.lstm(dropped_y)
         h1_c1 = self.dec0(dropped_y, h)
         h1 = get_rnn_hidden_state(h1_c1)
 
@@ -138,13 +133,6 @@ class Generator(nn.Module):
         ct = self.att(features[self.ctx_name][0]).squeeze(0)
         h1_ct = torch.mul(h1, ct)
 
-        # h2_c2 = self.dec1(h1_ct, h1_c1)
-        # h2 = get_rnn_hidden_state(h2_c2)
-
-        # logit = self.hid2out(h2)
-
-        # prob = F.softmax(self.out2prob(logit), dim=-1)
-        # # prob = F.log_softmax(self.out2prob(logit), dim=-1)
         h2, _ = self.attention(h1_ct)
         logit = self.hid2out(h2)
 
