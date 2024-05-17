@@ -104,46 +104,6 @@ class Generator(nn.Module):
             probs[t] = prob
         return probs
 
-    def f_next2(self, features, y, prob, h):
-        current_batch_size = len(y)
-
-        if self.dropout_emb:
-            if self.local_dropout:
-                ones = torch.ones(current_batch_size)
-                ones = self.do_emb(ones)
-                dropped_y = torch.zeros_like(y, device=y.device)
-
-                for i in range(current_batch_size):
-                    if ones[i] == 0.0:
-                        dropped_y[i] = y[i] - y[i]
-                    else:
-                        dropped_y[i] = y[i]
-            else:
-                dropped_y = self.do_emb(y)
-        else:
-            dropped_y = y
-
-        # hidden_state from first decoder
-        h1_c1 = self.dec0(dropped_y, h)
-        h1 = get_rnn_hidden_state(h1_c1)
-
-        if self.dropout_state > 0:
-            h1 = self.do_state(h1)
-
-        ct = self.att(features[self.ctx_name][0]).squeeze(0)
-        h1_ct = torch.mul(h1, ct)
-
-        # Run second decoder (h1 is compatible now as it was returned by GRU)
-        h2_c2 = self.dec1(h1_ct, h1_c1)
-        h2 = get_rnn_hidden_state(h2_c2)
-
-        logit = self.hid2out(h2)
-
-        prob = F.softmax(self.out2prob(logit), dim=-1)
-        # prob = F.log_softmax(self.out2prob(logit), dim=-1)
-
-        return prob, h2
-
     def f_next(self, features, y, prob, h):
         current_batch_size = len(y)
 
